@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+    <meta charset="UTF-8">
+    <title>Ratchet WebSocket Chat Sample</title>
+    <style>
+        body {
+            padding: 20px;
+            margin: 0;
+            font-family: arial, sans-serif;
+        }
+
+        .received-message, .sent-message {
+            padding: 10px;
+            margin: 1px 0 0 0;
+            text-align: left;
+        }
+
+        .sent-message {
+            background: lightskyblue;
+        }
+
+        .received-message {
+            background: lightgreen;
+        }
+
+        #chat {
+            background: #EAEAEA;
+            border: #CCC;
+            padding: 20px;
+        }
+
+        #message {
+            display: block;
+            width: 80%;
+            border: 5px solid #EAEAEA;
+            margin: 10px 0;
+            padding: 20px;
+            font-size: 20px;
+            font-family: arial, sans-serif;
+        }
+    </style>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <script>
+        var conn = new WebSocket('ws://localhost:8080');
+        var name;
+        conn.onopen = function (e) {
+            console.log("Connec tion established!");
+        };
+
+        function getTime() {
+            var date = new Date();
+
+            return date.toLocaleDateString()
+        };
+
+        function sendMessage(e) {
+            var code = (e.keyCode ? e.keyCode : e.which);
+
+            if (code !== 13) {
+                return;
+            }
+
+            var message = document.getElementById('message').value;
+
+            if (message.length === 0) {
+                return;
+            }
+
+            var msg = {};
+            msg["type"] = "message";
+            msg["name"] = name;
+            msg["message"] = message;
+            conn.send(JSON.stringify(msg));
+
+            var content = document.getElementById('chat').innerHTML;
+
+            document.getElementById('chat').innerHTML = content + '<div class="sent-message">[ME] ' + message + '</div>';
+            document.getElementById('message').value = '';
+        };
+
+        function receiveMessage(e) {
+            var content = document.getElementById('chat').innerHTML;
+
+            var jsonMessage = JSON.parse(e.data);
+            console.log(jsonMessage);
+            if (jsonMessage.type === "message") {
+                document.getElementById('chat').innerHTML = content + '<div class="received-message">[' + jsonMessage.name + '] ' + jsonMessage.message + '</div>';
+            } else if (jsonMessage.type === "onlineUsers") {
+                var count = 0;
+                var onlineUsers = "";
+                $.each(jsonMessage.onlineUsers, function (key, val) {
+                    if (count === 0) {
+                        onlineUsers = val;
+                    } else {
+                        onlineUsers = onlineUsers + ", " + val;
+                    }
+                    count++;
+                });
+                console.log(onlineUsers);
+                document.getElementById('onlineUsers').innerHTML = '<p>Users online: ' + onlineUsers + '</p>'
+            }
+        };
+
+        conn.onmessage = function (e) {
+            receiveMessage(e);
+        };
+
+        function hideChat() {
+            var element = document.getElementById("chatHolder");
+            element.style.display = "none";
+        }
+
+        function loginOnEnter(e) {
+            var code = (e.keyCode ? e.keyCode : e.which);
+
+            if (code === 13) {
+                login();
+            }
+        }
+
+        function login() {
+            var chatHolder = document.getElementById("chatHolder");
+            chatHolder.style.display = "block";
+            var loginHolder = document.getElementById("loginHolder");
+            loginHolder.style.display = "none";
+
+            name = document.getElementById("text-name").value;
+            conn.send("{\"type\":\"login\",\"name\":\"" + name + "\"}")
+
+        }
+    </script>
+</head>
+<body>
+<h1>Simple Chat using WebSocket + Ratchet</h1>
+
+<div id="loginHolder">
+    <label for="text-name">Enter Name</label>
+    <input type="text" onkeyup="loginOnEnter(event)" id="text-name">
+    <button type="button" onclick="login()">Login</button>
+</div>
+<script>
+    $(document).ready(function () {
+        hideChat();
+    });
+</script>
+
+<div id="chatHolder">
+    <p>
+        Open It in two browser tabs and see It working!
+    </p>
+    <div id="chat"></div>
+    <textarea id="message" onkeyup="sendMessage(event)" placeholder="Type your message here..."></textarea>
+
+    <p></p>
+</div>
+<div id="onlineUsers"></div>
+</body>
+</html>
